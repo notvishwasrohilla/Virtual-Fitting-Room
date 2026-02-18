@@ -1,5 +1,4 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import * as FileSystem from "expo-file-system";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -9,6 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// FIX 1: We import from 'legacy' to get the working moveAsync command
+import * as FileSystem from "expo-file-system/legacy";
 
 export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -39,7 +40,6 @@ export default function App() {
   const savePhoto = async () => {
     if (photoUri) {
       const fileName = photoUri.split("/").pop();
-      // This is the permanent folder on your phone
       const newPath = FileSystem.documentDirectory + fileName;
 
       try {
@@ -48,7 +48,7 @@ export default function App() {
           to: newPath,
         });
         Alert.alert("Success!", "Outfit saved to your digital closet.");
-        setPhotoUri(null); // Reset to take another photo
+        setPhotoUri(null);
       } catch (error) {
         console.log(error);
         Alert.alert("Error", "Could not save photo.");
@@ -60,6 +60,7 @@ export default function App() {
     return (
       <View style={styles.container}>
         <Image source={{ uri: photoUri }} style={styles.preview} />
+        {/* Overlay is now a sibling to Image, sitting on top */}
         <View style={styles.overlay}>
           <TouchableOpacity
             style={styles.button}
@@ -80,13 +81,15 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing="back" ref={cameraRef}>
-        <View style={styles.overlay}>
-          <TouchableOpacity style={styles.shutterBtn} onPress={takePicture}>
-            <View style={styles.shutterInner} />
-          </TouchableOpacity>
-        </View>
-      </CameraView>
+      {/* FIX 2: CameraView is now self-closing. No children inside! */}
+      <CameraView style={styles.camera} facing="back" ref={cameraRef} />
+
+      {/* The Overlay sits AFTER the camera, so it floats on top */}
+      <View style={styles.overlay}>
+        <TouchableOpacity style={styles.shutterBtn} onPress={takePicture}>
+          <View style={styles.shutterInner} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -104,13 +107,16 @@ const styles = StyleSheet.create({
     flex: 1,
     resizeMode: "contain",
   },
+  // We added explicit positioning to make sure it floats correctly
   overlay: {
     position: "absolute",
     bottom: 50,
-    width: "100%",
+    left: 0,
+    right: 0,
     flexDirection: "row",
     justifyContent: "center",
     gap: 20,
+    zIndex: 1, // Ensures it sits above the camera/image
   },
   text: {
     color: "#FFF",
