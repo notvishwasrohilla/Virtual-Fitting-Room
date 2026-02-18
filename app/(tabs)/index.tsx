@@ -1,22 +1,17 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useRef, useState } from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function App() {
-  // This hook asks the Android phone for permission to use the lens
   const [permission, requestPermission] = useCameraPermissions();
+  const [photo, setPhoto] = useState<string | null>(null); // Stores the captured photo
+  const cameraRef = useRef<CameraView>(null); // "Remote control" for the camera
 
-  if (!permission) {
-    // Camera permissions are still loading in the background
-    return <View style={styles.container} />;
-  }
-
+  if (!permission) return <View />;
   if (!permission.granted) {
-    // The user hasn't granted permission yet. Show them a button!
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>
-          VFR needs your permission to scan clothes.
-        </Text>
+        <Text style={styles.text}>VFR needs camera access</Text>
         <TouchableOpacity style={styles.button} onPress={requestPermission}>
           <Text style={styles.buttonText}>Grant Permission</Text>
         </TouchableOpacity>
@@ -24,12 +19,47 @@ export default function App() {
     );
   }
 
-  // Permission granted! Show the live camera feed.
+  // Function to take the picture
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      const photoData = await cameraRef.current.takePictureAsync();
+      if (photoData?.uri) {
+        setPhoto(photoData.uri); // Save the photo to state
+      }
+    }
+  };
+
+  // If a photo is taken, show the PREVIEW screen
+  if (photo) {
+    return (
+      <View style={styles.container}>
+        <Image source={{ uri: photo }} style={styles.preview} />
+        <View style={styles.overlay}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => setPhoto(null)}
+          >
+            <Text style={styles.buttonText}>Retake</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: "#00E5FF" }]}
+          >
+            <Text style={styles.buttonText}>Use This</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Otherwise, show the LIVE CAMERA
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing="back">
+      <CameraView style={styles.camera} facing="back" ref={cameraRef}>
         <View style={styles.overlay}>
-          <Text style={styles.scanText}>Point at your clothes!</Text>
+          {/* The Shutter Button */}
+          <TouchableOpacity style={styles.shutterBtn} onPress={takePicture}>
+            <View style={styles.shutterInner} />
+          </TouchableOpacity>
         </View>
       </CameraView>
     </View>
@@ -39,46 +69,57 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1E1E1E",
+    backgroundColor: "#000",
     justifyContent: "center",
   },
   camera: {
     flex: 1,
   },
-  overlay: {
+  preview: {
     flex: 1,
-    backgroundColor: "transparent",
+    resizeMode: "contain",
+  },
+  overlay: {
+    position: "absolute",
+    bottom: 50,
+    width: "100%",
     flexDirection: "row",
     justifyContent: "center",
-    alignItems: "flex-end",
-    paddingBottom: 50,
-  },
-  scanText: {
-    color: "#FFFFFF",
-    fontSize: 22,
-    fontWeight: "bold",
-    backgroundColor: "rgba(0,0,0,0.6)",
-    padding: 15,
-    borderRadius: 10,
-    overflow: "hidden",
+    gap: 20,
   },
   text: {
-    color: "#FFFFFF",
+    color: "#FFF",
     textAlign: "center",
-    fontSize: 18,
     marginBottom: 20,
-    paddingHorizontal: 20,
   },
   button: {
-    backgroundColor: "#00E5FF",
+    backgroundColor: "#333",
     padding: 15,
     borderRadius: 10,
+    minWidth: 100,
     alignItems: "center",
-    marginHorizontal: 50,
   },
   buttonText: {
-    color: "#000000",
+    color: "#FFF",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  shutterBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 5,
+    borderColor: "rgba(0,0,0,0.2)",
+  },
+  shutterInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#FFF",
+    borderWidth: 2,
+    borderColor: "#000",
   },
 });
