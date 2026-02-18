@@ -1,11 +1,19 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as FileSystem from "expo-file-system";
 import { useRef, useState } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
-  const [photo, setPhoto] = useState<string | null>(null); // Stores the captured photo
-  const cameraRef = useRef<CameraView>(null); // "Remote control" for the camera
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const cameraRef = useRef<CameraView>(null);
 
   if (!permission) return <View />;
   if (!permission.granted) {
@@ -19,30 +27,49 @@ export default function App() {
     );
   }
 
-  // Function to take the picture
   const takePicture = async () => {
     if (cameraRef.current) {
-      const photoData = await cameraRef.current.takePictureAsync();
-      if (photoData?.uri) {
-        setPhoto(photoData.uri); // Save the photo to state
+      const photo = await cameraRef.current.takePictureAsync();
+      if (photo?.uri) {
+        setPhotoUri(photo.uri);
       }
     }
   };
 
-  // If a photo is taken, show the PREVIEW screen
-  if (photo) {
+  const savePhoto = async () => {
+    if (photoUri) {
+      const fileName = photoUri.split("/").pop();
+      // This is the permanent folder on your phone
+      const newPath = FileSystem.documentDirectory + fileName;
+
+      try {
+        await FileSystem.moveAsync({
+          from: photoUri,
+          to: newPath,
+        });
+        Alert.alert("Success!", "Outfit saved to your digital closet.");
+        setPhotoUri(null); // Reset to take another photo
+      } catch (error) {
+        console.log(error);
+        Alert.alert("Error", "Could not save photo.");
+      }
+    }
+  };
+
+  if (photoUri) {
     return (
       <View style={styles.container}>
-        <Image source={{ uri: photo }} style={styles.preview} />
+        <Image source={{ uri: photoUri }} style={styles.preview} />
         <View style={styles.overlay}>
           <TouchableOpacity
             style={styles.button}
-            onPress={() => setPhoto(null)}
+            onPress={() => setPhotoUri(null)}
           >
             <Text style={styles.buttonText}>Retake</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.button, { backgroundColor: "#00E5FF" }]}
+            onPress={savePhoto}
           >
             <Text style={styles.buttonText}>Use This</Text>
           </TouchableOpacity>
@@ -51,12 +78,10 @@ export default function App() {
     );
   }
 
-  // Otherwise, show the LIVE CAMERA
   return (
     <View style={styles.container}>
       <CameraView style={styles.camera} facing="back" ref={cameraRef}>
         <View style={styles.overlay}>
-          {/* The Shutter Button */}
           <TouchableOpacity style={styles.shutterBtn} onPress={takePicture}>
             <View style={styles.shutterInner} />
           </TouchableOpacity>
