@@ -2,6 +2,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  Alert,
   FlatList,
   Image,
   StyleSheet,
@@ -14,7 +15,6 @@ export default function Closet() {
   const [images, setImages] = useState<string[]>([]);
   const router = useRouter();
 
-  // This runs every time you open the screen
   useEffect(() => {
     loadImages();
   }, []);
@@ -23,10 +23,30 @@ export default function Closet() {
     const files = await FileSystem.readDirectoryAsync(
       FileSystem.documentDirectory,
     );
-
-    // We are removing the filter completely!
-    // Just grab everything in the folder so we can finally see what Expo is saving them as.
     setImages(files);
+  };
+
+  // NEW: The Delete Function
+  const deleteImage = async (filename: string) => {
+    Alert.alert(
+      "Throw Away?",
+      "Are you sure you want to delete this from your closet?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            // Delete the file from the hard drive
+            await FileSystem.deleteAsync(
+              FileSystem.documentDirectory + filename,
+            );
+            // Refresh the closet to show it's gone
+            loadImages();
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -35,13 +55,19 @@ export default function Closet() {
 
       <FlatList
         data={images}
-        numColumns={3} // show 3 items per row
+        numColumns={3}
         keyExtractor={(item) => item}
         renderItem={({ item }) => (
-          <Image
-            source={{ uri: FileSystem.documentDirectory + item }}
-            style={styles.thumbnail}
-          />
+          // NEW: Wrap the Image in a TouchableOpacity that detects a long press
+          <TouchableOpacity
+            style={styles.thumbnailContainer}
+            onLongPress={() => deleteImage(item)}
+          >
+            <Image
+              source={{ uri: FileSystem.documentDirectory + item }}
+              style={styles.thumbnail}
+            />
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
           <Text style={styles.emptyText}>No clothes yet!</Text>
@@ -69,10 +95,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: "center",
   },
-  thumbnail: {
+  // NEW: Added a container to hold the image properly
+  thumbnailContainer: {
     width: "30%",
-    aspectRatio: 1, // keeps it square
+    aspectRatio: 1,
     margin: "1.5%",
+  },
+  thumbnail: {
+    width: "100%",
+    height: "100%",
     borderRadius: 10,
     backgroundColor: "#333",
   },
