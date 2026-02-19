@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as FileSystem from "expo-file-system/legacy";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -8,13 +9,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// FIX 1: We import from 'legacy' to get the working moveAsync command
-import * as FileSystem from "expo-file-system/legacy";
+// NEW: Import the router so we can travel between screens
+import { useRouter } from "expo-router";
 
 export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
+
+  // NEW: Initialize the router
+  const router = useRouter();
 
   if (!permission) return <View />;
   if (!permission.granted) {
@@ -60,7 +64,6 @@ export default function App() {
     return (
       <View style={styles.container}>
         <Image source={{ uri: photoUri }} style={styles.preview} />
-        {/* Overlay is now a sibling to Image, sitting on top */}
         <View style={styles.overlay}>
           <TouchableOpacity
             style={styles.button}
@@ -81,10 +84,16 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      {/* FIX 2: CameraView is now self-closing. No children inside! */}
       <CameraView style={styles.camera} facing="back" ref={cameraRef} />
 
-      {/* The Overlay sits AFTER the camera, so it floats on top */}
+      {/* NEW: The Closet Button floating at the top right */}
+      <TouchableOpacity
+        style={styles.closetButton}
+        onPress={() => router.push("/closet")}
+      >
+        <Text style={styles.closetButtonText}>My Closet</Text>
+      </TouchableOpacity>
+
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.shutterBtn} onPress={takePicture}>
           <View style={styles.shutterInner} />
@@ -107,7 +116,6 @@ const styles = StyleSheet.create({
     flex: 1,
     resizeMode: "contain",
   },
-  // We added explicit positioning to make sure it floats correctly
   overlay: {
     position: "absolute",
     bottom: 50,
@@ -116,7 +124,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 20,
-    zIndex: 1, // Ensures it sits above the camera/image
+    zIndex: 1,
+  },
+  // NEW: Styling for the closet button
+  closetButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    zIndex: 2,
+  },
+  closetButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
   },
   text: {
     color: "#FFF",
