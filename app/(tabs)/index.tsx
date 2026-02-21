@@ -1,5 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as FileSystem from "expo-file-system/legacy";
+import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
   Alert,
@@ -9,15 +10,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// NEW: Import the router so we can travel between screens
-import { useRouter } from "expo-router";
 
 export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
-
-  // NEW: Initialize the router
   const router = useRouter();
 
   if (!permission) return <View />;
@@ -41,17 +38,20 @@ export default function App() {
     }
   };
 
-  const savePhoto = async () => {
+  // NEW: We now pass a "category" word into the save function
+  const savePhoto = async (category: string) => {
     if (photoUri) {
-      const fileName = photoUri.split("/").pop();
-      const newPath = FileSystem.documentDirectory + fileName;
+      const originalName = photoUri.split("/").pop();
+      // We glue the category to the front of the name!
+      const newFileName = `${category}_${originalName}`;
+      const newPath = FileSystem.documentDirectory + newFileName;
 
       try {
         await FileSystem.moveAsync({
           from: photoUri,
           to: newPath,
         });
-        Alert.alert("Success!", "Outfit saved to your digital closet.");
+        Alert.alert("Success!", `Saved as a ${category}.`);
         setPhotoUri(null);
       } catch (error) {
         console.log(error);
@@ -71,11 +71,19 @@ export default function App() {
           >
             <Text style={styles.buttonText}>Retake</Text>
           </TouchableOpacity>
+
+          {/* NEW: Category Buttons instead of "Use This" */}
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: "#00E5FF" }]}
-            onPress={savePhoto}
+            style={[styles.button, { backgroundColor: "#FF6B6B" }]}
+            onPress={() => savePhoto("Top")}
           >
-            <Text style={styles.buttonText}>Use This</Text>
+            <Text style={styles.buttonText}>Top</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: "#4D96FF" }]}
+            onPress={() => savePhoto("Bottom")}
+          >
+            <Text style={styles.buttonText}>Bottom</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -86,7 +94,6 @@ export default function App() {
     <View style={styles.container}>
       <CameraView style={styles.camera} facing="back" ref={cameraRef} />
 
-      {/* NEW: The Closet Button floating at the top right */}
       <TouchableOpacity
         style={styles.closetButton}
         onPress={() => router.push("/closet")}
@@ -104,18 +111,9 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-    justifyContent: "center",
-  },
-  camera: {
-    flex: 1,
-  },
-  preview: {
-    flex: 1,
-    resizeMode: "contain",
-  },
+  container: { flex: 1, backgroundColor: "#000", justifyContent: "center" },
+  camera: { flex: 1 },
+  preview: { flex: 1, resizeMode: "contain" },
   overlay: {
     position: "absolute",
     bottom: 50,
@@ -123,10 +121,9 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: "row",
     justifyContent: "center",
-    gap: 20,
+    gap: 15,
     zIndex: 1,
   },
-  // NEW: Styling for the closet button
   closetButton: {
     position: "absolute",
     top: 50,
@@ -137,28 +134,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     zIndex: 2,
   },
-  closetButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  text: {
-    color: "#FFF",
-    textAlign: "center",
-    marginBottom: 20,
-  },
+  closetButtonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+  text: { color: "#FFF", textAlign: "center", marginBottom: 20 },
   button: {
     backgroundColor: "#333",
     padding: 15,
     borderRadius: 10,
-    minWidth: 100,
+    minWidth: 80,
     alignItems: "center",
   },
-  buttonText: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  buttonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
   shutterBtn: {
     width: 80,
     height: 80,
