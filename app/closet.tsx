@@ -12,7 +12,6 @@ import {
   View,
 } from "react-native";
 
-// Get the exact width of your phone screen
 const { width } = Dimensions.get("window");
 
 export default function Closet() {
@@ -28,8 +27,9 @@ export default function Closet() {
     const files = await FileSystem.readDirectoryAsync(
       FileSystem.documentDirectory,
     );
-    const myTops = files.filter((file) => file.includes("Top_"));
-    const myBottoms = files.filter((file) => file.includes("Bottom_"));
+    // Use startsWith to safely grab our files
+    const myTops = files.filter((file) => file.startsWith("Top_"));
+    const myBottoms = files.filter((file) => file.startsWith("Bottom_"));
     setTops(myTops);
     setBottoms(myBottoms);
   };
@@ -54,19 +54,42 @@ export default function Closet() {
     );
   };
 
-  // The component for making images huge and swipeable
-  const Garment = ({ item }: { item: string }) => (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onLongPress={() => deleteImage(item)}
-      style={styles.garmentContainer}
-    >
-      <Image
-        source={{ uri: FileSystem.documentDirectory + item }}
-        style={styles.garmentImage}
-      />
-    </TouchableOpacity>
-  );
+  // THE UPGRADED GARMENT COMPONENT
+  const Garment = ({ item }: { item: string }) => {
+    // 1. Break the filename into pieces
+    const parts = item.split("_");
+
+    // 2. Extract the Name and Background safely (handling old test photos)
+    const rawName = parts.length >= 4 ? parts[1] : "Unknown Item";
+    const itemName = rawName.replace(/-/g, " "); // Turn "Faded-Jeans" into "Faded Jeans"
+    const contrast = parts.length >= 4 ? parts[2] : "dark";
+
+    // 3. Set the dynamic styling based on the AI's choice!
+    const bgColor = contrast === "light" ? "#F5F5F5" : "#222222";
+    const labelColor = contrast === "light" ? "#FFFFFF" : "#333333";
+    const textColor = contrast === "light" ? "#000000" : "#FFFFFF";
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onLongPress={() => deleteImage(item)}
+        // Inject the dynamic background color right here:
+        style={[styles.garmentContainer, { backgroundColor: bgColor }]}
+      >
+        <Image
+          source={{ uri: FileSystem.documentDirectory + item }}
+          style={styles.garmentImage}
+        />
+
+        {/* Added a stylish label for the AI's descriptive name */}
+        <View style={[styles.labelContainer, { backgroundColor: labelColor }]}>
+          <Text style={[styles.labelText, { color: textColor }]}>
+            {itemName}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -78,7 +101,7 @@ export default function Closet() {
           <FlatList
             data={tops}
             horizontal
-            pagingEnabled // This forces it to snap beautifully!
+            pagingEnabled
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item}
             renderItem={({ item }) => <Garment item={item} />}
@@ -86,7 +109,6 @@ export default function Closet() {
         )}
       </View>
 
-      {/* A small divider line to separate the clothes */}
       <View style={styles.divider} />
 
       {/* THE BOTTOM HALF */}
@@ -105,7 +127,6 @@ export default function Closet() {
         )}
       </View>
 
-      {/* Back Button floating at the bottom */}
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Text style={styles.buttonText}>Back to Scanner</Text>
       </TouchableOpacity>
@@ -116,20 +137,20 @@ export default function Closet() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1E1E1E",
+    backgroundColor: "#000", // Made the background behind everything pitch black
   },
   halfScreen: {
-    flex: 1, // Takes up exactly half the available space
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
   divider: {
     height: 4,
-    backgroundColor: "#333",
+    backgroundColor: "#000", // Invisible divider
     width: "100%",
   },
   garmentContainer: {
-    width: width, // Exactly as wide as the phone screen
+    width: width,
     height: "100%",
     padding: 20,
     justifyContent: "center",
@@ -137,8 +158,25 @@ const styles = StyleSheet.create({
   },
   garmentImage: {
     width: "100%",
-    height: "100%",
-    resizeMode: "contain", // Keeps the whole image visible without stretching
+    height: "85%", // Leave a little room for the label
+    resizeMode: "contain",
+  },
+  labelContainer: {
+    position: "absolute",
+    bottom: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  labelText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    textTransform: "capitalize",
   },
   emptyText: {
     color: "#888",
@@ -149,10 +187,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 30,
     alignSelf: "center",
-    backgroundColor: "rgba(0, 229, 255, 0.8)",
-    paddingVertical: 15,
-    paddingHorizontal: 30,
+    backgroundColor: "rgba(0, 229, 255, 0.9)",
+    paddingVertical: 12,
+    paddingHorizontal: 25,
     borderRadius: 30,
+    elevation: 5,
   },
   buttonText: {
     color: "#000",
