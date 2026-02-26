@@ -25,8 +25,9 @@ export default function App() {
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
 
-  const GEMINI_API_KEY = "--YOUR-GEMINI-API-KEY-HERE--";
-  const REMOVE_BG_API_KEY = "--YOUR-REMOVE-BG-API-KEY-HERE--";
+  // Reaching into your local .env vault to grab the keys!
+  const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
+  const REMOVE_BG_API_KEY = process.env.EXPO_PUBLIC_REMOVE_BG_API_KEY || "";
 
   if (!permission) return <View />;
   if (!permission.granted) {
@@ -54,11 +55,20 @@ export default function App() {
 
   const analyzeWithAI = async () => {
     if (!photoData) return;
+
+    // Quick safety check to make sure the vault is working
+    if (!GEMINI_API_KEY || !REMOVE_BG_API_KEY) {
+      Alert.alert(
+        "Missing Keys",
+        "Check your .env file. The app can't find your API keys.",
+      );
+      return;
+    }
+
     setIsProcessing(true);
     setLoadingText("AI is analyzing fashion details...");
 
     try {
-      // THE UPGRADED PROMPT: Center-focus and Contrast Background generation
       const prompt = `Analyze this image. Ignore the background, edges, and any peripheral clothing. Focus STRICTLY on the single largest garment in the direct center of the frame. 
       If it is NOT clear clothing, return exactly {"status": "Invalid"}. 
       If it IS clothing, return a JSON object with this exact structure:
@@ -119,11 +129,10 @@ export default function App() {
       const category = aiData.category;
       const itemName = aiData.itemName;
       const tags = aiData.tags.join(", ");
-      const contrastBg = aiData.contrastBg; // "light" or "dark"
+      const contrastBg = aiData.contrastBg;
 
       setLoadingText(`Found: ${itemName}!\nRemoving background...`);
 
-      // We now pass the contrast setting to the save function
       await cutBackgroundAndSave(category, itemName, tags, contrastBg);
     } catch (error: any) {
       console.log("CRITICAL CRASH LOG:", error.message || error);
@@ -162,9 +171,6 @@ export default function App() {
       const base64Image = jsonResponse.data.result_b64;
 
       const safeItemName = itemName.replace(/[^a-zA-Z0-9]/g, "-");
-
-      // NEW: We inject the word "light" or "dark" right into the file name!
-      // Example: Bottom_Faded-Jeans_light_12345.png
       const newFileName = `${category}_${safeItemName}_${contrastBg}_${Date.now()}.png`;
       const newPath = FileSystem.documentDirectory + newFileName;
 
