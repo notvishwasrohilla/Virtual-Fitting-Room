@@ -1,136 +1,167 @@
-import * as FileSystem from "expo-file-system/legacy";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useRef } from "react";
-import {
-    Animated,
-    Image,
-    PanResponder,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Canvas } from "@react-three/fiber/native";
+import React, { useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export default function Canvas() {
-  const router = useRouter();
-  const { selectedImage } = useLocalSearchParams<{ selectedImage: string }>();
+// 1. THE PARAMETRIC MANNEQUIN
+// It takes in the exact measurements from the UI state below
+function ParametricTorso({
+  chest,
+  waist,
+  torsoHeight,
+}: {
+  chest: number;
+  waist: number;
+  torsoHeight: number;
+}) {
+  return (
+    // We scale the Z-axis down to 0.6 to flatten the cylinder into a more natural, human-like oval shape
+    <mesh scale={[1, 1, 0.6]} castShadow receiveShadow>
+      {/* args: [RadiusTop, RadiusBottom, Height, RadialSegments, HeightSegments]
+        We keep segments relatively low (32x16) to ensure hyper-fast 10-second baking later
+      */}
+      <cylinderGeometry args={[chest, waist, torsoHeight, 32, 16]} />
+      <meshStandardMaterial
+        color="#00E5FF"
+        wireframe={true} // Kept as wireframe so you can see the polygon structure curve
+        roughness={0.5}
+      />
+    </mesh>
+  );
+}
 
-  // 1. The tracker: This holds the exact X and Y coordinates of the clothing
-  const pan = useRef(new Animated.ValueXY()).current;
-
-  // 2. The physics engine: This reads your finger movements
-  const panResponder = useRef(
-    PanResponder.create({
-      // Tell the app we want to claim the touch event when the user drags
-      onMoveShouldSetPanResponder: () => true,
-
-      // When the user first taps the clothing:
-      onPanResponderGrant: () => {
-        // Memorize where the item currently is so it doesn't snap back to the center
-        pan.setOffset({
-          x: (pan.x as any)._value,
-          y: (pan.y as any)._value,
-        });
-      },
-
-      // When the user is actively dragging their finger:
-      onPanResponderMove: Animated.event(
-        [
-          null,
-          { dx: pan.x, dy: pan.y }, // Tie the finger movement directly to our X and Y tracker
-        ],
-        { useNativeDriver: false }, // Required for layout animations like moving around
-      ),
-
-      // When the user lets go of the screen:
-      onPanResponderRelease: () => {
-        // Flatten the offset so the next drag starts exactly from this new spot
-        pan.flattenOffset();
-      },
-    }),
-  ).current;
+export default function CanvasScreen() {
+  // 2. THE MEASUREMENT STATE
+  const [chest, setChest] = useState(1.2);
+  const [waist, setWaist] = useState(1.0);
+  const [torsoHeight, setTorsoHeight] = useState(2.5);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Outfit Canvas</Text>
-
-      <View style={styles.canvasArea}>
-        {selectedImage ? (
-          // 3. We wrap the Image inside an Animated.View and attach the physics engine to it
-          <Animated.View
-            {...panResponder.panHandlers}
-            style={[
-              pan.getLayout(), // This applies the real-time X and Y coordinates to the UI
-              styles.stagedItemContainer,
-            ]}
-          >
-            <Image
-              source={{ uri: FileSystem.documentDirectory + selectedImage }}
-              style={styles.stagedItem}
-            />
-          </Animated.View>
-        ) : (
-          <Text style={styles.emptyText}>
-            Go back to your closet and select an item!
-          </Text>
-        )}
+      <View style={styles.header}>
+        <Text style={styles.title}>VFR: Measurement Profile</Text>
       </View>
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.buttonText}>Back to Closet</Text>
-      </TouchableOpacity>
+      {/* 3. THE 3D STAGE */}
+      <View style={styles.canvasContainer}>
+        <Canvas shadows camera={{ position: [0, 0, 5], fov: 50 }}>
+          <ambientLight intensity={0.4} />
+          <directionalLight position={[5, 5, 5]} intensity={1.5} castShadow />
+          <pointLight position={[-5, -5, -5]} intensity={0.5} color="#ff0044" />
+
+          <ParametricTorso
+            chest={chest}
+            waist={waist}
+            torsoHeight={torsoHeight}
+          />
+        </Canvas>
+      </View>
+
+      {/* 4. THE CUSTOMIZATION CONTROLS */}
+      <View style={styles.controlsContainer}>
+        {/* Chest Controls */}
+        <View style={styles.controlRow}>
+          <Text style={styles.label}>Shoulders/Chest: {chest.toFixed(2)}</Text>
+          <View style={styles.buttonGroup}>
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => setChest((p) => Math.max(0.5, p - 0.1))}
+            >
+              <Text style={styles.btnText}>-</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => setChest((p) => Math.min(2.5, p + 0.1))}
+            >
+              <Text style={styles.btnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Waist Controls */}
+        <View style={styles.controlRow}>
+          <Text style={styles.label}>Waist/Hips: {waist.toFixed(2)}</Text>
+          <View style={styles.buttonGroup}>
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => setWaist((p) => Math.max(0.5, p - 0.1))}
+            >
+              <Text style={styles.btnText}>-</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => setWaist((p) => Math.min(2.5, p + 0.1))}
+            >
+              <Text style={styles.btnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Height Controls */}
+        <View style={styles.controlRow}>
+          <Text style={styles.label}>
+            Torso Length: {torsoHeight.toFixed(2)}
+          </Text>
+          <View style={styles.buttonGroup}>
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => setTorsoHeight((p) => Math.max(1.5, p - 0.1))}
+            >
+              <Text style={styles.btnText}>-</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => setTorsoHeight((p) => Math.min(4.0, p + 0.1))}
+            >
+              <Text style={styles.btnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-    paddingTop: 50,
-  },
-  title: {
-    color: "#FFF",
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  canvasArea: {
-    flex: 1,
-    backgroundColor: "#1E1E1E",
-    margin: 20,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-  stagedItemContainer: {
-    // We put the size restrictions on the container, not the image itself, for smoother dragging
-    width: 250,
-    height: 250,
-  },
-  stagedItem: {
+  container: { flex: 1, backgroundColor: "#000", padding: 20, paddingTop: 50 },
+  header: { marginBottom: 15, alignItems: "center" },
+  title: { color: "#FFF", fontSize: 22, fontWeight: "bold" },
+  canvasContainer: {
     width: "100%",
-    height: "100%",
-    resizeMode: "contain",
+    height: 400,
+    backgroundColor: "#1E1E1E",
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#333",
   },
-  emptyText: {
-    color: "#888",
-    fontSize: 16,
-    fontStyle: "italic",
+  controlsContainer: {
+    marginTop: 20,
+    backgroundColor: "#111",
+    padding: 20,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#222",
   },
-  backButton: {
-    backgroundColor: "#00E5FF",
-    padding: 15,
-    marginHorizontal: 40,
-    borderRadius: 10,
+  controlRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 15,
   },
-  buttonText: {
-    color: "#000",
-    fontSize: 18,
-    fontWeight: "bold",
+  label: { color: "#FFF", fontSize: 16, fontWeight: "600", width: "50%" },
+  buttonGroup: {
+    flexDirection: "row",
+    gap: 10,
+    width: "40%",
+    justifyContent: "flex-end",
   },
+  btn: {
+    backgroundColor: "#00E5FF",
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnText: { color: "#000", fontSize: 20, fontWeight: "bold" },
 });
