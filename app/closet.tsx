@@ -27,7 +27,6 @@ export default function Closet() {
     const files = await FileSystem.readDirectoryAsync(
       FileSystem.documentDirectory,
     );
-    // Use startsWith to safely grab our files
     const myTops = files.filter((file) => file.startsWith("Top_"));
     const myBottoms = files.filter((file) => file.startsWith("Bottom_"));
     setTops(myTops);
@@ -54,17 +53,13 @@ export default function Closet() {
     );
   };
 
-  // THE UPGRADED GARMENT COMPONENT
   const Garment = ({ item }: { item: string }) => {
-    // 1. Break the filename into pieces
     const parts = item.split("_");
 
-    // 2. Extract the Name and Background safely (handling old test photos)
     const rawName = parts.length >= 4 ? parts[1] : "Unknown Item";
-    const itemName = rawName.replace(/-/g, " "); // Turn "Faded-Jeans" into "Faded Jeans"
+    const itemName = rawName.replace(/-/g, " ");
     const contrast = parts.length >= 4 ? parts[2] : "dark";
 
-    // 3. Set the dynamic styling based on the AI's choice!
     const bgColor = contrast === "light" ? "#F5F5F5" : "#222222";
     const labelColor = contrast === "light" ? "#FFFFFF" : "#333333";
     const textColor = contrast === "light" ? "#000000" : "#FFFFFF";
@@ -72,8 +67,9 @@ export default function Closet() {
     return (
       <TouchableOpacity
         activeOpacity={0.9}
+        // NEW: This is the teleportation beam to the canvas!
+        onPress={() => router.push(`/canvas?selectedImage=${item}`)}
         onLongPress={() => deleteImage(item)}
-        // Inject the dynamic background color right here:
         style={[styles.garmentContainer, { backgroundColor: bgColor }]}
       >
         <Image
@@ -81,7 +77,6 @@ export default function Closet() {
           style={styles.garmentImage}
         />
 
-        {/* Added a stylish label for the AI's descriptive name */}
         <View style={[styles.labelContainer, { backgroundColor: labelColor }]}>
           <Text style={[styles.labelText, { color: textColor }]}>
             {itemName}
@@ -93,7 +88,6 @@ export default function Closet() {
 
   return (
     <View style={styles.container}>
-      {/* THE TOP HALF */}
       <View style={styles.halfScreen}>
         {tops.length === 0 ? (
           <Text style={styles.emptyText}>No tops saved yet.</Text>
@@ -111,7 +105,6 @@ export default function Closet() {
 
       <View style={styles.divider} />
 
-      {/* THE BOTTOM HALF */}
       <View style={styles.halfScreen}>
         {bottoms.length === 0 ? (
           <Text style={styles.emptyText}>No bottoms saved yet.</Text>
@@ -137,7 +130,7 @@ export default function Closet() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000", // Made the background behind everything pitch black
+    backgroundColor: "#000",
   },
   halfScreen: {
     flex: 1,
@@ -146,7 +139,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 4,
-    backgroundColor: "#000", // Invisible divider
+    backgroundColor: "#000",
     width: "100%",
   },
   garmentContainer: {
@@ -158,7 +151,7 @@ const styles = StyleSheet.create({
   },
   garmentImage: {
     width: "100%",
-    height: "85%", // Leave a little room for the label
+    height: "85%",
     resizeMode: "contain",
   },
   labelContainer: {

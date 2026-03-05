@@ -25,7 +25,6 @@ export default function App() {
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
 
-  // Reaching into your local .env vault to grab the keys!
   const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
   const REMOVE_BG_API_KEY = process.env.EXPO_PUBLIC_REMOVE_BG_API_KEY || "";
 
@@ -56,7 +55,6 @@ export default function App() {
   const analyzeWithAI = async () => {
     if (!photoData) return;
 
-    // Quick safety check to make sure the vault is working
     if (!GEMINI_API_KEY || !REMOVE_BG_API_KEY) {
       Alert.alert(
         "Missing Keys",
@@ -225,6 +223,14 @@ export default function App() {
     <View style={styles.container}>
       <CameraView style={styles.camera} facing="back" ref={cameraRef} />
 
+      {/* NEW: Temporary 3D Test Button on the top left */}
+      <TouchableOpacity
+        style={styles.testButton}
+        onPress={() => router.push("/test3d")}
+      >
+        <Text style={styles.closetButtonText}>3D Test</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={styles.closetButton}
         onPress={() => router.push("/closet")}
@@ -254,6 +260,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 15,
     zIndex: 1,
+  },
+  testButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    backgroundColor: "rgba(255,107,107,0.8)", // Red button so it stands out
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    zIndex: 2,
   },
   closetButton: {
     position: "absolute",
