@@ -14,6 +14,43 @@ import {
 
 const { width } = Dimensions.get("window");
 
+// Moved outside to prevent re-mounting on every Closet render
+const Garment = ({
+  item,
+  onPress,
+  onLongPress,
+}: {
+  item: string;
+  onPress: (item: string) => void;
+  onLongPress: (item: string) => void;
+}) => {
+  const parts = item.split("_");
+  const rawName = parts.length >= 4 ? parts[1] : "Unknown Item";
+  const itemName = rawName.replace(/-/g, " ");
+  const contrast = parts.length >= 4 ? parts[2] : "dark";
+
+  const bgColor = contrast === "light" ? "#F5F5F5" : "#222222";
+  const labelColor = contrast === "light" ? "#FFFFFF" : "#333333";
+  const textColor = contrast === "light" ? "#000000" : "#FFFFFF";
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={() => onPress(item)}
+      onLongPress={() => onLongPress(item)}
+      style={[styles.garmentContainer, { backgroundColor: bgColor }]}
+    >
+      <Image
+        source={{ uri: FileSystem.documentDirectory + item }}
+        style={styles.garmentImage}
+      />
+      <View style={[styles.labelContainer, { backgroundColor: labelColor }]}>
+        <Text style={[styles.labelText, { color: textColor }]}>{itemName}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 export default function Closet() {
   const [tops, setTops] = useState<string[]>([]);
   const [bottoms, setBottoms] = useState<string[]>([]);
@@ -53,39 +90,6 @@ export default function Closet() {
     );
   };
 
-  const Garment = ({ item }: { item: string }) => {
-    const parts = item.split("_");
-
-    const rawName = parts.length >= 4 ? parts[1] : "Unknown Item";
-    const itemName = rawName.replace(/-/g, " ");
-    const contrast = parts.length >= 4 ? parts[2] : "dark";
-
-    const bgColor = contrast === "light" ? "#F5F5F5" : "#222222";
-    const labelColor = contrast === "light" ? "#FFFFFF" : "#333333";
-    const textColor = contrast === "light" ? "#000000" : "#FFFFFF";
-
-    return (
-      <TouchableOpacity
-        activeOpacity={0.9}
-        // NEW: This is the teleportation beam to the canvas!
-        onPress={() => router.push(`/canvas?selectedImage=${item}`)}
-        onLongPress={() => deleteImage(item)}
-        style={[styles.garmentContainer, { backgroundColor: bgColor }]}
-      >
-        <Image
-          source={{ uri: FileSystem.documentDirectory + item }}
-          style={styles.garmentImage}
-        />
-
-        <View style={[styles.labelContainer, { backgroundColor: labelColor }]}>
-          <Text style={[styles.labelText, { color: textColor }]}>
-            {itemName}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.halfScreen}>
@@ -98,7 +102,13 @@ export default function Closet() {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item}
-            renderItem={({ item }) => <Garment item={item} />}
+            renderItem={({ item }) => (
+              <Garment
+                item={item}
+                onPress={(i) => router.push(`/canvas?selectedImage=${i}`)}
+                onLongPress={deleteImage}
+              />
+            )}
           />
         )}
       </View>
@@ -115,7 +125,13 @@ export default function Closet() {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item}
-            renderItem={({ item }) => <Garment item={item} />}
+            renderItem={({ item }) => (
+              <Garment
+                item={item}
+                onPress={(i) => router.push(`/canvas?selectedImage=${i}`)}
+                onLongPress={deleteImage}
+              />
+            )}
           />
         )}
       </View>

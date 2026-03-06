@@ -1,36 +1,74 @@
+import { useTexture } from "@react-three/drei/native"; // NEW: The native-safe texture loader
 import { Canvas } from "@react-three/fiber/native";
-import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { Suspense, useState } from "react";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import * as THREE from "three";
 
-// 1. THE PARAMETRIC MANNEQUIN
-// It takes in the exact measurements from the UI state below
+// Stabilize the shadow map config to prevent WeakMap re-allocation issues
+const SHADOW_CONFIG = { type: THREE.PCFShadowMap };
+
+// NEW: We extract the material into its own component to prevent React Hook errors
+function TexturedMaterial({ imageUri }: { imageUri: string }) {
+  // useTexture uses React Native's native file system instead of an HTML <img> tag
+  const texture = useTexture(imageUri);
+  return (
+    <meshStandardMaterial
+      map={texture}
+      color="#FFFFFF"
+      transparent={true}
+      roughness={0.8}
+    />
+  );
+}
+
 function ParametricTorso({
   chest,
   waist,
   torsoHeight,
+  imageUri,
 }: {
   chest: number;
   waist: number;
   torsoHeight: number;
+  imageUri: string | null;
 }) {
   return (
-    // We scale the Z-axis down to 0.6 to flatten the cylinder into a more natural, human-like oval shape
-    <mesh scale={[1, 1, 0.6]} castShadow receiveShadow>
-      {/* args: [RadiusTop, RadiusBottom, Height, RadialSegments, HeightSegments]
-        We keep segments relatively low (32x16) to ensure hyper-fast 10-second baking later
-      */}
+    <mesh
+      key={`${chest}-${waist}-${torsoHeight}`} // Forces a clean swap when geometry changes
+      scale={[1, 1, 0.6]}
+      castShadow
+      receiveShadow
+    >
       <cylinderGeometry args={[chest, waist, torsoHeight, 32, 16]} />
-      <meshStandardMaterial
-        color="#00E5FF"
-        wireframe={true} // Kept as wireframe so you can see the polygon structure curve
-        roughness={0.5}
-      />
+
+      {/* If we have a clothing image, paint it. If not, fallback to the cyan placeholder. */}
+      {imageUri ? (
+        <TexturedMaterial imageUri={imageUri} />
+      ) : (
+        <meshStandardMaterial color="#00E5FF" roughness={0.8} />
+      )}
     </mesh>
   );
 }
 
 export default function CanvasScreen() {
-  // 2. THE MEASUREMENT STATE
+  const router = useRouter();
+  const [isTextureLoading, setIsTextureLoading] = useState(false);
+  const { selectedImage } = useLocalSearchParams<{ selectedImage: string }>();
+
+  // Construct the native file path
+  const imageUri = selectedImage
+    ? FileSystem.documentDirectory + selectedImage
+    : null;
+
   const [chest, setChest] = useState(1.2);
   const [waist, setWaist] = useState(1.0);
   const [torsoHeight, setTorsoHeight] = useState(2.5);
@@ -38,29 +76,50 @@ export default function CanvasScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>VFR: Measurement Profile</Text>
+        <Text style={styles.title}>VFR: Texture Projection</Text>
       </View>
 
-      {/* 3. THE 3D STAGE */}
       <View style={styles.canvasContainer}>
-        <Canvas shadows camera={{ position: [0, 0, 5], fov: 50 }}>
-          <ambientLight intensity={0.4} />
-          <directionalLight position={[5, 5, 5]} intensity={1.5} castShadow />
-          <pointLight position={[-5, -5, -5]} intensity={0.5} color="#ff0044" />
+        <Canvas
+          shadows={SHADOW_CONFIG}
+          camera={{ position: [0, 0, 5], fov: 50 }}
+          onCreated={(state) => {
+            const gl = state.gl.getContext();
+            if (gl && typeof gl.pixelStorei === "function") {
+              // 1 is safer than 4 for arbitrary mobile photo dimensions
+              gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+            }
+          }}
+        >
+          <ambientLight intensity={0.6} />
+          <Suspense fallback={null}>
+            <directionalLight position={[5, 5, 5]} intensity={1.5} castShadow />
+            <pointLight
+              position={[-5, -5, -5]}
+              intensity={0.5}
+              color="#ffffff"
+            />
 
-          <ParametricTorso
-            chest={chest}
-            waist={waist}
-            torsoHeight={torsoHeight}
-          />
+            <ParametricTorso
+              chest={chest}
+              waist={waist}
+              torsoHeight={torsoHeight}
+              imageUri={imageUri}
+            />
+          </Suspense>
         </Canvas>
+
+        {/* Overlay loader so the Canvas doesn't unmount during texture swaps */}
+        {imageUri && (
+          <Suspense fallback={<TextureLoaderOverlay />}>
+            <TextureWatcher imageUri={imageUri} />
+          </Suspense>
+        )}
       </View>
 
-      {/* 4. THE CUSTOMIZATION CONTROLS */}
       <View style={styles.controlsContainer}>
-        {/* Chest Controls */}
         <View style={styles.controlRow}>
-          <Text style={styles.label}>Shoulders/Chest: {chest.toFixed(2)}</Text>
+          <Text style={styles.label}>Shoulders/Chest</Text>
           <View style={styles.buttonGroup}>
             <TouchableOpacity
               style={styles.btn}
@@ -77,9 +136,8 @@ export default function CanvasScreen() {
           </View>
         </View>
 
-        {/* Waist Controls */}
         <View style={styles.controlRow}>
-          <Text style={styles.label}>Waist/Hips: {waist.toFixed(2)}</Text>
+          <Text style={styles.label}>Waist/Hips</Text>
           <View style={styles.buttonGroup}>
             <TouchableOpacity
               style={styles.btn}
@@ -96,27 +154,28 @@ export default function CanvasScreen() {
           </View>
         </View>
 
-        {/* Height Controls */}
-        <View style={styles.controlRow}>
-          <Text style={styles.label}>
-            Torso Length: {torsoHeight.toFixed(2)}
-          </Text>
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity
-              style={styles.btn}
-              onPress={() => setTorsoHeight((p) => Math.max(1.5, p - 0.1))}
-            >
-              <Text style={styles.btnText}>-</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.btn}
-              onPress={() => setTorsoHeight((p) => Math.min(4.0, p + 0.1))}
-            >
-              <Text style={styles.btnText}>+</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backButtonText}>Back to Closet</Text>
+        </TouchableOpacity>
       </View>
+    </View>
+  );
+}
+
+// Helper components to handle loading UI without unmounting the Canvas
+function TextureWatcher({ imageUri }: { imageUri: string }) {
+  useTexture(imageUri);
+  return null;
+}
+
+function TextureLoaderOverlay() {
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.loadingOverlay]}>
+      <ActivityIndicator size="large" color="#00E5FF" />
+      <Text style={styles.loadingText}>Applying Texture...</Text>
     </View>
   );
 }
@@ -133,7 +192,16 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "#333",
+    justifyContent: "center",
   },
+  loadingOverlay: {
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { color: "#00E5FF", marginTop: 10, fontWeight: "bold" },
   controlsContainer: {
     marginTop: 20,
     backgroundColor: "#111",
@@ -156,12 +224,20 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   btn: {
-    backgroundColor: "#00E5FF",
+    backgroundColor: "#333",
     width: 40,
     height: 40,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-  btnText: { color: "#000", fontSize: 20, fontWeight: "bold" },
+  btnText: { color: "#FFF", fontSize: 20, fontWeight: "bold" },
+  backButton: {
+    backgroundColor: "#00E5FF",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  backButtonText: { color: "#000", fontSize: 16, fontWeight: "bold" },
 });
